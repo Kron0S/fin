@@ -1,0 +1,165 @@
+{% extends 'layouts/backend.html' %}
+	
+{% block css %}
+	{{ parent() }}
+	<style>
+	.dragClass td {background:#eee !important;}
+	.display_index {text-decoration:line-through;}
+	.display_index.showed {text-decoration:none;}
+	#table .altRow td{background-color: #eee;}
+	</style>
+<link rel="stylesheet" type="text/css" media="screen" href="/css/admin/jqgrid/blitzer/jquery-ui-1.8.5.custom.css" />
+<link rel="stylesheet" type="text/css" media="screen" href="/css/admin/jqgrid/ui.jqgrid.css" />
+<link rel="stylesheet" type="text/css" media="screen" href="/css/admin/jquery.checkbox.css" />
+{% endblock %}
+
+{% block js %}
+	{{ parent() }}
+	<script src="/js/jquery.js" type="text/javascript"></script>
+	<script src="/js/admin/jquery.checkbox.js" type="text/javascript"></script>
+	<script src="/js/admin/jquery.tablednd.js" type="text/javascript"></script>
+<script type="text/javascript" src="/js/admin/jqgrid/i18n/grid.locale-ru.js"></script>
+<script type="text/javascript" src="/js/admin/jqgrid/jquery.jqGrid.min.js"></script>
+<script type="text/javascript">
+
+jQuery.extend($.fn.fmatter , {
+	set_actions : function(cellvalue, options, rowdata) {
+		var output = '';
+		output += '<input type="button" id="' + rowdata.id + '" class="edit" value="Редактировать" />';
+		output += '<input type="button" id="' + rowdata.id + '" class="remove" value="Удалить" />';
+		{% if parent_field %}
+			output += '<input type="button" id="' + rowdata.id + '" class="add" value="Добавить" />';
+		{% endif %}
+		return output;
+	}
+});
+
+jQuery.extend($.fn.fmatter , {
+	showed_toogler : function(cellvalue, options, rowdata) {
+		var output;
+		if(cellvalue=='1')
+			output = '<input type="checkbox" id="' + rowdata.id + '" class="toogler" value="1" checked="checked"/>';
+		else
+			output = '<input type="checkbox" id="' + rowdata.id + '" class="toogler" value="1" />';
+		return output;
+	}
+});
+
+$(function(){
+	/*jQuery("#table").tableDnD({scrollAmount:0}); */
+	$('#table').jqGrid({
+		url:'/admin/{{ controller }}/json/',
+		datatype: 'json',
+		mtype: 'post',
+		colNames:[
+			{% import "tools/forms.html" as forms %}
+			'id',
+			{{ forms.display_index_header(multi_language_fields) }}
+			{{ forms.display_index_header(common_fields) }}
+			{% if catalog_field %}
+				'{{ catalog_display_name }}',
+			{% endif %}
+			'Действия'
+		],
+		colModel :[
+			{name:'id',index:'id', width:1, hidden:true, key:true},
+			{{ forms.display_index(multi_language_fields) }}
+			{{ forms.display_index(common_fields) }}
+			{% if catalog_field %}
+				{name:'{{ catalog_display_name }}',index:'{{ catalog_display_name }}'},
+			{% endif %}
+			{name:'act',index:'act', width:87,align:"center", editable:false, sortable:false, align:"center", formatter:'set_actions'}
+		],
+		pager: $('#tablePager'),
+		rowNum:{{ pages_pre_page }},
+		rowList:[10,20,30,100],
+		caption : '{{ current_action_name }}',
+		sortname: 'username',///
+		{% if not parent_field %}
+			rownumbers: true,
+			rownumWidth: 40,
+			gridview: true,
+		{% endif %}
+		autowidth: true,
+		height:450,
+		jsonReader:{
+			root: "rows",
+			page: "page",
+			total: "total",
+			records: "records",
+			repeatitems: false,
+			cell: "cell",
+			id: "0",
+			userdata: "userdata",
+			subgrid: {
+				root:"rows", 
+				repeatitems: true, 
+				cell:"cell"
+			}
+		},
+		scroll: 1,
+		sortorder: 'asc',
+		viewrecords: true,
+		altclass:'altRow',
+		altRows:true,
+	/*	gridComplete: function() {
+			$("#_empty","#table").addClass("nodrag nodrop");
+			jQuery("#table").tableDnDUpdate();
+		},*/
+		toolbar: [true,"top"],
+		{% if catalog_field %}
+			grouping:true,
+			groupingView : {
+				groupField : ['{{ catalog_display_name }}'],
+				groupColumnShow : [false],
+				groupText : ['<b>{0} - Количество записей: {1} </b>']
+			},
+		{% endif %}
+		{% if parent_field %}
+			treeGrid: true,
+			treeGridModel: 'nested',
+			ExpandColumn: 'name',
+			ExpandColClick: true,
+		{% endif %}
+		gridComplete:function()
+		{
+			$('#table input.add').click(function(){
+				location.href = '/admin/{{ controller }}/add/' + this.id;
+			});
+			$('#table input.edit').click(function(){
+				location.href = '/admin/{{ controller }}/edit/' + this.id;
+			});
+			$('#table input.remove').click(function(){
+				if(confirm('Удалить?'))
+					location.href = '/admin/{{ controller }}/del/' + this.id;
+			});
+			$('#table input.toogler').checkbox({empty:'/img/admin/checkboxes/empty.png'}).click(function(){
+				$.post('/admin/{{ controller }}/toggle/'+this.id, {'showed':!this.checked},function(){},'json');
+			});
+		}
+	});
+	jQuery("#table").jqGrid('navGrid','#tablePager',{edit:false,add:false,del:false}); 
+	$("#t_table").append("<input type='button' value='Колонки' style='height:20px;font-size:-3'/>");
+	$("input","#t_table").click(function(){ jQuery("#table").jqGrid('setColumns'); }); 
+	
+	
+});
+
+</script>
+{% endblock %}
+
+{% block content %}
+<div id="content">
+	<table id="table"></table>
+	<div id="tablePager"></div>
+
+	{% if addition_methods %}
+		<ul>
+			{% for url,name in addition_methods %}
+				<li><a id="addition_method_{{ url }}" href="/admin/{{ controller }}/{{ url }}/{{ parent_id }}">{{ name }}</a></li>
+			{% endfor %}
+		</ul>
+	{% endif %}
+	
+</div>
+{% endblock %}
